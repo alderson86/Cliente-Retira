@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Controle de Acesso - Pessoas e Veículos</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #1c1c1c;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      font-size: 0.85rem;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 300px;
+      height: 300px;
+      transform: translate(-50%, -50%);
+      background: url('https://letskick.com.br/wp-content/uploads/2024/04/rte-logo.png') no-repeat center center;
+      background-size: contain;
+      opacity: 0.08;
+      pointer-events: none;
+      z-index: 0;
+    }
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background-color: rgba(44, 44, 44, 0.95);
+      border-bottom: 1px solid #444;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+      z-index: 10;
+      padding: 0.5rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header img.logo { height: 40px; }
+    header .form-control { background-color: #444; color: #fff; border: none; }
+    main {
+      position: absolute;
+      top: 60px;
+      bottom: 100px;
+      left: 0;
+      right: 0;
+      overflow-y: auto;
+      padding: 0.75rem;
+      background-color: rgba(30,30,30,0.9);
+      scroll-behavior: smooth;
+    }
+    .record-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #3a3a3a;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin-bottom: 4px;
+      transition: background 0.3s;
+      cursor: pointer;
+    }
+    .record-item:hover { background: #505050; }
+    footer.form-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: rgba(44,44,44,0.95);
+      border-top: 1px solid #444;
+      padding: 8px 10px;
+      z-index: 10;
+    }
+    .btn-custom { border-radius: 6px; background-color: #007aff; color: #fff; }
+    .btn-custom:hover { background-color: #339aff; }
+    .form-control, .form-select { background-color: #444; color: #fff; border: none; font-size: 0.85rem; }
+    .form-control:focus, .form-select:focus { background-color: #555; color: #fff; box-shadow: none; }
+    .footer-buttons { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+    .small-muted { font-size:0.8rem; color:#cfcfcf; }
+  </style>
+</head>
+<body>
+  <header>
+    <img class="logo" src="https://letskick.com.br/wp-content/uploads/2024/04/rte-logo.png" alt="Logo RTE">
+    <h5 class="m-0">Controle de Acesso</h5>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <input id="searchInput" class="form-control form-control-sm" placeholder="Pesquisar... (nome, CPF/placa, modelo, setor, data)">
+      <button id="btnExportTxt" class="btn btn-sm btn-outline-light">Relatório TXT</button>
+      <button id="btnExportExcel" class="btn btn-sm btn-outline-success">Relatório Excel</button>
+      <input type="file" id="importExcel" accept=".csv, .xls, .xlsx" class="form-control form-control-sm" style="width:auto; display:inline-block; background:#333; color:#fff;">
+      <button id="btnClearAll" class="btn btn-sm btn-outline-danger">Limpar Tudo</button>
+    </div>
+  </header>
+
+  <main class="container-fluid">
+    <div id="recordsContainer" class="mt-2"></div>
+  </main>
+
+  <footer class="form-footer">
+    <form id="accessForm" class="row g-1 align-items-center">
+      <input type="hidden" id="editingIndex">
+      <div class="col-auto">
+        <input id="dateBadge" class="form-control form-control-sm" readonly>
+      </div>
+      <div class="col-sm-3 col-md-2">
+        <input id="nameInput" class="form-control form-control-sm" placeholder="Nome / Empresa" required>
+      </div>
+      <div class="col-sm-2 col-md-2">
+        <input id="cpfPlacaInput" class="form-control form-control-sm" placeholder="CPF / Placa" required>
+      </div>
+      <div class="col-sm-2 col-md-2">
+        <input id="modelInput" class="form-control form-control-sm" placeholder="Modelo">
+      </div>
+      <div class="col-sm-2 col-md-2 d-flex gap-1">
+        <input id="timeInput" class="form-control form-control-sm" placeholder="Hora (HH:MM)">
+        <button id="btnHoraAuto" type="button" class="btn btn-sm btn-custom">⏱</button>
+      </div>
+      <div class="col-sm-2 col-md-2">
+        <select id="sectorSelect" class="form-select form-select-sm">
+          <option value="Retira/Despacho">Retira/Despacho</option>
+          <option value="ADM">ADM</option>
+          <option value="Manutenção">Manutenção</option>
+          <option value="Posto">Posto</option>
+          <option value="Outros">Outros</option>
+        </select>
+      </div>
+      <div class="col-12 footer-buttons">
+        <button id="btnSave" class="btn btn-sm btn-custom" type="submit">Salvar</button>
+        <button id="btnCancel" class="btn btn-sm btn-secondary" type="button">Cancelar</button>
+      </div>
+    </form>
+  </footer>
+
+  <script>
+    const LS_KEY = 'accessRecords_v3';
+    const recordsContainer = document.getElementById('recordsContainer');
+    const searchInput = document.getElementById('searchInput');
+
+    function loadRecords(){
+      const raw = localStorage.getItem(LS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }
+
+    function saveRecords(data){
+      localStorage.setItem(LS_KEY, JSON.stringify(data));
+    }
+
+    // Parse dd/mm/yyyy and HH:MM into a Date object (local)
+    function parseDateTime(dateStr, timeStr){
+      // Expecting dateStr like "dd/mm/yyyy", timeStr like "HH:MM"
+      try {
+        const parts = dateStr.split('/');
+        if(parts.length !== 3) return new Date(); // fallback
+        const day = parseInt(parts[0],10);
+        const month = parseInt(parts[1],10) - 1;
+        const year = parseInt(parts[2],10);
+        let hours = 0, minutes = 0;
+        if(timeStr){
+          const t = timeStr.split(':');
+          hours = parseInt(t[0]||'0',10);
+          minutes = parseInt(t[1]||'0',10);
+        }
+        return new Date(year, month, day, hours, minutes);
+      } catch(e){
+        return new Date();
+      }
+    }
+
+    // Render records. filterText optional - will match across multiple fields.
+    function renderRecords(filterText = ''){
+      const raw = loadRecords();
+      // Build an array that keeps track of original indices
+      const indexed = raw.map((r, idx) => ({...r, origIndex: idx}));
+
+      // Apply filter if provided
+      const filter = (filterText || '').trim().toLowerCase();
+      let filtered = indexed;
+      if(filter){
+        filtered = indexed.filter(r => {
+          return (
+            (r.name || '').toLowerCase().includes(filter) ||
+            (r.cpfPlaca || '').toLowerCase().includes(filter) ||
+            (r.model || '').toLowerCase().includes(filter) ||
+            (r.sector || '').toLowerCase().includes(filter) ||
+            (r.date || '').toLowerCase().includes(filter) ||
+            (r.time || '').toLowerCase().includes(filter)
+          );
+        });
+      }
+
+      // Sort the filtered array by date+time using parseDateTime
+      filtered.sort((a,b) => {
+        const da = parseDateTime(a.date || new Date().toLocaleDateString('pt-BR'), a.time || '00:00');
+        const db = parseDateTime(b.date || new Date().toLocaleDateString('pt-BR'), b.time || '00:00');
+        return da - db;
+      });
+
+      recordsContainer.innerHTML = '';
+      if(!filtered.length){
+        recordsContainer.innerHTML = `<div class="text-center text-light mt-3">Nenhum registro encontrado</div>`;
+        return;
+      }
+
+      filtered.forEach((r)=>{
+        const div = document.createElement('div');
+        div.className = 'record-item';
+        div.setAttribute('data-orig-index', r.origIndex); // VERY IMPORTANT: original index
+        div.innerHTML = `<div><strong class="small-muted">${r.date} | ${r.time}</strong> &nbsp; ${escapeHtml(r.name)} &nbsp; <span class="small-muted">| ${escapeHtml(r.cpfPlaca)} | ${escapeHtml(r.model)} | ${escapeHtml(r.sector)}</span></div>`;
+        // dblclick uses origIndex to retrieve correct record from storage
+        div.ondblclick = ()=> {
+          const idx = parseInt(div.getAttribute('data-orig-index'), 10);
+          editRecord(idx);
+        };
+        recordsContainer.appendChild(div);
+      });
+
+      // scroll to bottom
+      recordsContainer.scrollTop = recordsContainer.scrollHeight;
+    }
+
+    // Escape HTML to avoid injection if data has special chars
+    function escapeHtml(text){
+      if(!text && text !== 0) return '';
+      return String(text).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); });
+    }
+
+    // Edit by original index (index in the actual stored array)
+    function editRecord(origIndex){
+      const data = loadRecords();
+      const r = data[origIndex];
+      if(!r) return alert('Registro não encontrado (pode ter sido removido).');
+      document.getElementById('editingIndex').value = origIndex; // store original index
+      document.getElementById('dateBadge').value = r.date;
+      document.getElementById('nameInput').value = r.name;
+      document.getElementById('cpfPlacaInput').value = r.cpfPlaca;
+      document.getElementById('modelInput').value = r.model;
+      document.getElementById('timeInput').value = r.time;
+      document.getElementById('sectorSelect').value = r.sector;
+      // scroll form into view
+      document.getElementById('nameInput').focus();
+    }
+
+    document.getElementById('btnHoraAuto').addEventListener('click',()=>{
+      const now = new Date();
+      document.getElementById('timeInput').value = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    });
+
+    function updateDateBadge(){
+      const now = new Date();
+      document.getElementById('dateBadge').value = now.toLocaleDateString('pt-BR');
+    }
+
+    document.getElementById('accessForm').addEventListener('submit',function(e){
+      e.preventDefault();
+      const data = loadRecords();
+      const editingRaw = document.getElementById('editingIndex').value;
+      // Build record from inputs
+      const record = {
+        date: document.getElementById('dateBadge').value || new Date().toLocaleDateString('pt-BR'),
+        time: document.getElementById('timeInput').value || new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+        name: document.getElementById('nameInput').value,
+        cpfPlaca: document.getElementById('cpfPlacaInput').value,
+        model: document.getElementById('modelInput').value,
+        sector: document.getElementById('sectorSelect').value
+      };
+      if(editingRaw !== ''){
+        const origIndex = parseInt(editingRaw, 10);
+        if(!isNaN(origIndex) && origIndex >= 0 && origIndex < data.length){
+          data[origIndex] = record;
+        } else {
+          // fallback - append
+          data.push(record);
+        }
+      } else {
+        data.push(record);
+      }
+      saveRecords(data);
+      this.reset();
+      document.getElementById('editingIndex').value = ''; // reset editing index
+      updateDateBadge();
+      renderRecords(searchInput.value);
+    });
+
+    // When typing in CPF/Placa, fill autocomplete fields from storage (preserve behavior)
+    document.getElementById('cpfPlacaInput').addEventListener('input', function(){
+      const data = loadRecords();
+      const val = this.value;
+      if(!val) return;
+      const found = data.find(r => r.cpfPlaca === val);
+      if(found){
+        document.getElementById('nameInput').value = found.name;
+        document.getElementById('modelInput').value = found.model;
+        document.getElementById('sectorSelect').value = found.sector;
+      }
+    });
+
+    // Export TXT
+    document.getElementById('btnExportTxt').addEventListener('click',()=>{
+      const data = loadRecords();
+      if(!data.length){ alert('Nenhum registro para exportar'); return; }
+      let txt = 'Data | Hora | Nome | CPF/Placa | Modelo | Setor\n';
+      data.forEach(r=>{ txt += `${r.date} | ${r.time} | ${r.name} | ${r.cpfPlaca} | ${r.model} | ${r.sector}\n`; });
+      const blob = new Blob([txt], {type: 'text/plain'});
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'relatorio_acesso.txt';
+      link.click();
+    });
+
+    // Export CSV
+    document.getElementById('btnExportExcel').addEventListener('click',()=>{
+      const data = loadRecords();
+      if(!data.length){ alert('Nenhum registro para exportar'); return; }
+      // Build CSV with quoted fields to be safer
+      let csv = 'Data,Hora,Nome,CPF/Placa,Modelo,Setor\n';
+      data.forEach(r=>{
+        const row = [
+          csvSafe(r.date),
+          csvSafe(r.time),
+          csvSafe(r.name),
+          csvSafe(r.cpfPlaca),
+          csvSafe(r.model),
+          csvSafe(r.sector)
+        ].join(',');
+        csv += row + '\n';
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute('download', 'relatorio_acesso.csv');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
+    function csvSafe(value){
+      if(value === undefined || value === null) return '';
+      const s = String(value).replace(/"/g, '""');
+      return `"${s}"`;
+    }
+
+    // Novo comportamento: limpar apenas os itens visíveis, manter dados de autocomplete
+    document.getElementById('btnClearAll').addEventListener('click',()=>{
+      if(confirm('Deseja limpar apenas os itens exibidos na tela (manter histórico de autocomplete)?')) {
+        const allData = loadRecords();
+        // backup completo para autocomplete
+        localStorage.setItem('autocomplete_backup', JSON.stringify(allData));
+        // remove registros
+        localStorage.removeItem(LS_KEY);
+        renderRecords();
+      }
+    });
+
+    // Função para importar arquivo Excel (CSV)
+    document.getElementById('importExcel').addEventListener('change', (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = function(ev){
+        const content = ev.target.result;
+        // Normalize newlines and split, skip blank lines
+        const lines = content.replace(/\r/g, '').split('\n').map(l=>l.trim()).filter(l=>l);
+        // If first line looks like header, skip it
+        let start = 0;
+        if(lines.length && /data|hora|nome/i.test(lines[0])) start = 1;
+        const imported = [];
+        for(let i=start;i<lines.length;i++){
+          const line = lines[i];
+          // Split by comma but consider quoted fields
+          const cols = parseCsvLine(line);
+          const date = (cols[0]||'').trim();
+          const time = (cols[1]||'').trim();
+          const name = (cols[2]||'').trim();
+          const cpfPlaca = (cols[3]||'').trim();
+          const model = (cols[4]||'').trim();
+          const sector = (cols[5]||'').trim();
+          if((date || name) && name !== 'undefined'){
+            imported.push({date: date || new Date().toLocaleDateString('pt-BR'), time: time || '', name, cpfPlaca, model, sector});
+          }
+        }
+        const data = loadRecords().concat(imported);
+        saveRecords(data);
+        renderRecords(searchInput.value);
+        alert('Registros importados com sucesso!');
+      };
+      reader.readAsText(file, 'UTF-8');
+      // reset file input so same file can be reimported if needed
+      e.target.value = '';
+    });
+
+    // Simple CSV line parser that handles quoted fields
+    function parseCsvLine(line){
+      const res = [];
+      let cur = '';
+      let inQuotes = false;
+      for(let i=0;i<line.length;i++){
+        const ch = line[i];
+        if(ch === '"' ){
+          if(inQuotes && line[i+1] === '"'){ // escaped quote
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if(ch === ',' && !inQuotes){
+          res.push(cur);
+          cur = '';
+        } else {
+          cur += ch;
+        }
+      }
+      res.push(cur);
+      return res;
+    }
+
+    // Search/filter handler
+    searchInput.addEventListener('input', (e)=>{
+      renderRecords(e.target.value);
+    });
+
+    // Cancel button resets form and editing index
+    document.getElementById('btnCancel').addEventListener('click', ()=>{
+      document.getElementById('accessForm').reset();
+      document.getElementById('editingIndex').value = '';
+      updateDateBadge();
+    });
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', ()=>{
+      updateDateBadge();
+      renderRecords();
+    });
+
+    // Optional: keyboard shortcut Ctrl+L to clear search and list all
+    document.addEventListener('keydown', (e) => {
+      if(e.ctrlKey && (e.key === 'l' || e.key === 'L')){
+        e.preventDefault();
+        searchInput.value = '';
+        renderRecords('');
+        searchInput.focus();
+      }
+    });
+  </script>
+</body>
+</html>
